@@ -1,0 +1,73 @@
+/* Dark mode styles */
+@media (prefers-color-scheme: dark) {
+  html {
+    color: #e8e8e8;
+    background-color: #1a1a1a;
+  }
+
+  body {
+    color: #e8e8e8;
+    background-color: #1a1a1a;
+  }
+
+  a {
+    color: #58a6ff;
+  }
+
+  a:visited {
+    color: #8e96f0;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: #e8e8e8;
+  }
+
+  code {
+    background-color: #2d2d2d;
+    color: #e8e8e8;
+  }
+
+  pre {
+    background-color: #2d2d2d;
+  }
+
+  blockquote {
+    border-left-color: #4a4a4a;
+    color: #b0b0b0;
+  }
+
+  hr {
+    background-color: #4a4a4a;
+    border-top-color: #4a4a4a;
+  }
+
+  table {
+    border-color: #4a4a4a;
+  }
+
+  th, td {
+    border-color: #4a4a4a;
+  }
+
+  tbody {
+    border-top-color: #4a4a4a;
+    border-bottom-color: #4a4a4a;
+  }
+
+  th {
+    border-top-color: #4a4a4a;
+  }
+
+  /* Navigation styles */
+  nav {
+    background-color: #1a1a1a;
+  }
+
+  .date, .meta {
+    color: #a0a0a0;
+  }
+
+  header#title-block-header {
+    border-bottom-color: #4a4a4a;
+  }
+}

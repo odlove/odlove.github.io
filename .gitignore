@@ -1,0 +1,42 @@
+# Build output
+docs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+.nav.html
+
+# LaTeX compilation outputs
+*.pdf
+*.aux
+*.log
+*.synctex.gz
+*.out
+*.toc
+*.fdb_latexmk
+*.fls
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+*.nav
+*.snm
+*.vrb
+build/
