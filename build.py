@@ -527,7 +527,7 @@ code.sourceCode > span {
         html.append('}')
         html.append('</style></head><body>')
         html.append('<h1>Blog</h1>')
-        html.append(f'<p class="date">Last updated: {self.get_current_time().strftime("%Y-%m-%d %H:%M:%S")}</p>')
+        html.append(f'<p class="date">Last updated: {self.get_current_time().strftime("%Y-%m-%d %H:%M:%S")} | <a href="https://github.com/odlove/odlove.github.io">GitHub</a></p>')
 
         # Collections section
         if self.collections_dir.exists():
