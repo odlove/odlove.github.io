@@ -506,6 +506,19 @@ code.sourceCode > span {
 
     def generate_main_index(self):
         """Generate main index.html"""
+        # Get last commit time
+        try:
+            result = subprocess.run(
+                ['git', 'log', '-1', '--format=%cd', '--date=format:%Y-%m-%d %H:%M:%S'],
+                cwd=self.base_dir,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            last_commit_time = result.stdout.strip()
+        except:
+            last_commit_time = self.get_current_time().strftime("%Y-%m-%d %H:%M:%S")
+
         html = ['<!DOCTYPE html>']
         html.append('<html lang="en"><head><meta charset="UTF-8">')
         html.append('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
@@ -527,7 +540,7 @@ code.sourceCode > span {
         html.append('}')
         html.append('</style></head><body>')
         html.append('<h1>Blog</h1>')
-        html.append(f'<p class="date">Last updated: {self.get_current_time().strftime("%Y-%m-%d %H:%M:%S")} | <a href="https://github.com/odlove/odlove.github.io">GitHub</a></p>')
+        html.append(f'<p class="date">Last updated: {last_commit_time} | <a href="https://github.com/odlove/odlove.github.io">GitHub</a></p>')
 
         # Collections section
         if self.collections_dir.exists():
