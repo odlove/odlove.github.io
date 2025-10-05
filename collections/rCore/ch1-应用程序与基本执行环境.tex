@@ -1,0 +1,243 @@
+\documentclass{ctexart}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{fontspec}
+\usepackage{hyperref}
+
+% 设置代码字体为 Code New Roman Nerd Font
+\setmonofont{CodeNewRoman Nerd Font}
+
+% 超链接样式配置
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    citecolor=blue
+}
+
+% 定义 Rust 语言
+\lstdefinelanguage{Rust}{
+  keywords={as, break, const, continue, crate, else, enum, extern, false, fn, for, if, impl, in, let, loop, match, mod, move, mut, pub, ref, return, self, Self, static, struct, super, trait, true, type, unsafe, use, where, while, async, await, dyn},
+  keywordstyle=\color{blue}\bfseries,
+  ndkeywords={bool, u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, usize, isize, str, char, Box, Vec, String, Option, Result},
+  ndkeywordstyle=\color{purple}\bfseries,
+  sensitive=true,
+  comment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  commentstyle=\color{gray}\itshape,
+  stringstyle=\color{red},
+  morestring=[b]",
+  morestring=[b]'
+}
+
+% 代码块样式
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue}\bfseries,        % 关键字：蓝色粗体
+  commentstyle=\color{gray}\itshape,         % 注释：灰色斜体
+  stringstyle=\color{red},                   % 字符串：红色
+  numberstyle=\tiny\color{gray},             % 行号：灰色
+  identifierstyle=\color{black},             % 标识符：黑色
+  backgroundcolor=\color{gray!10},           % 背景色
+  frame=single,
+  xleftmargin=2em,
+  framexleftmargin=1.5em,
+  breaklines=true,
+  showstringspaces=false                     % 不显示字符串中的空格
+}
+
+\begin{document}
+
+\title{ch1-应用程序与基本执行环境}
+\author{odlove}
+\date{\today}
+\maketitle
+
+\section{Introduction}
+
+本章的最终任务是完成一个基于
+\href{https://github.com/rustsbi/rustsbi}{RustSBI}
+服务和
+\href{https://www.qemu.org/}{QEMU}
+完成输出 Hello, world 并关机.
+
+\section{Content}
+
+\subsection{第一步: 创建一个裸机程序}
+
+创建工作目录
+\begin{lstlisting}[language=bash]
+$ mkdir rCore
+$ cd rCore
+$ cargo new os
+$ cd os
+\end{lstlisting}
+
+此时我们的工作目录已经创建完成,
+运行
+\begin{lstlisting}
+$ cargo run
+\end{lstlisting}
+可以看到输出的 ``Hello, world!".
+
+但是我们的目标是编译到 riscv 的裸机环境,
+cargo 使用 \verb|--target| 来指定编译目标,
+所以让我们运行
+\begin{lstlisting}[language=bash]
+$ cargo build --target riscv64gc-unknown-none-elf
+\end{lstlisting}
+
+运行后会看到如下错误输出：
+\begin{lstlisting}
+error[E0463]: can't find crate for `std`
+  |
+  = note: the `riscv64gc-unknown-none-elf` target may not support the standard library
+  = note: `std` is required by `os` because it does not declare `#![no_std]`
+
+error: cannot find macro `println` in this scope
+ --> src/main.rs:2:5
+  |
+2 |     println!("Hello, world!");
+  |     ^^^^^^^
+
+error: `#[panic_handler]` function required, but not found
+
+For more information about this error, try `rustc --explain E0463`.
+error: could not compile `os` (bin "os") due to 3 previous errors
+\end{lstlisting}
+
+这里有三个错误:
+\begin{enumerate}
+    \item{找不到标准库}
+        \begin{lstlisting}
+error[E0463]: can't find crate for `std`
+  |
+  = note: the `riscv64gc-unknown-none-elf` target may not support the standard library
+  = note: `std` is required by `os` because it does not declare `#![no_std]`
+        \end{lstlisting}
+        这是因为我们使用的是裸机环境,
+        std 库是操作系统之上的一层抽象,
+        依赖于操作系统.
+    \item{找不到 \verb|println| 宏}
+        \begin{lstlisting}
+error: cannot find macro `println` in this scope
+ --> src/main.rs:2:5
+  |
+2 |     println!("Hello, world!");
+  |     ^^^^^^^
+        \end{lstlisting}
+        println 宏来自于 std 库,
+        没有 std 库自然就没有 println 宏
+    \item 缺少 \verb|#[panic_handler]|
+        \begin{lstlisting}
+error: `#[panic_handler]` function required, but not found
+        \end{lstlisting}
+        \verb|#[panic_handler]| 负责在rust程序崩溃时进行处理,
+        一般情况下 std 库会提供, 但是我们没有 std 库.
+        这是 rust 语言本身的要求, 参见
+        \href{https://doc.rust-lang.org/reference/panic.html\#the-panic\_handler-attribute}{Rust Reference}
+        和
+        \href{https://docs.rust-embedded.org/book/start/panicking.html}{Embedded Rust Book}.
+\end{enumerate}
+
+在解决这些问题之前, 让我们使用一个小小的 trick:
+在当前目录下创建 \verb|.cargo/config.toml| 文件, 内容如下:
+\begin{lstlisting}
+[build]
+target = "riscv64gc-unknown-none-elf"
+\end{lstlisting}
+这将会更改 \verb|cargo| 的默认目标,
+我们就不需要每次在命令后添加
+\texttt{-{}-target riscv64gc-unknown-none-elf} 了.
+
+\verb|println| 宏的问题最好解决, 只要直接删除就好了.
+标准库的问题则是要在程序开头添加 \verb|#![no_std]|.
+而\verb|#[panic_handler]|则需要我们添加一个函数:
+\begin{lstlisting}[language=Rust]
+use core::panic::PanicInfo;
+
+#[panic_handler]
+fn panic(_info: &PanicInfo) -> ! {
+    loop {}
+}
+\end{lstlisting}
+
+再次编译, 又遇到了新的错误:
+\begin{lstlisting}
+error: using `fn main` requires the standard library
+  |
+  = help: use `#![no_main]` to bypass the Rust generated entrypoint and declare a platform specific entrypoint yourself, usually with `#[no_mangle]`
+
+error: could not compile `os` (bin "os") due to 1 previous error
+\end{lstlisting}
+这是因为 \verb|main| 函数的环境也是由 std 库提供的,
+关于这一点我们会在后面[程序是如何在计算机上运行的]说明.
+现在我们需要添加 \verb|#![no_main]| 并删除 \verb|main| 函数.
+
+此时的 \verb|main.rs| 内容如下:
+\begin{lstlisting}[language=rust]
+#![no_std]
+#![no_main]
+
+use core::panic::PanicInfo;
+
+#[panic_handler]
+fn panic(_info: &PanicInfo) -> ! {
+    loop {}
+}
+\end{lstlisting}
+
+此时运行 \verb|cargo build|, 我们终于编译成功了.
+
+让我们来看看此时编译得到的可执行文件:
+\begin{lstlisting}[language=bash]
+$ file target/riscv64gc-unknown-none-elf/debug/os
+\end{lstlisting}
+得到:
+\begin{lstlisting}
+target/riscv64gc-unknown-none-elf/debug/os: ELF 64-bit LSB executable, UCB RISC-V, RVC, double-float ABI, version 1 (SYSV), statically linked, with debug_info, not stripped
+\end{lstlisting}
+\verb|ELF 64-bit|: 64位ELF格式\\
+\verb|LSB|: Little-Endian（小端序）\\
+\verb|UCB RISC-V|: RISC-V架构\\
+\verb|RVC|: 支持压缩指令集（C扩展）\\
+\verb|double-float ABI|: 双精度浮点\\
+\verb|statically linked|: 静态链接\\
+\verb|with debug_info|: 包含调试信息\\
+\verb|not stripped|: 符号表还在
+
+运行
+\begin{lstlisting}
+$ rust-objdump -h target/riscv64gc-unknown-none-elf/debug/os
+\end{lstlisting}
+得到
+\begin{lstlisting}
+target/riscv64gc-unknown-none-elf/debug/os:     file format elf64-littleriscv
+
+Sections:
+Idx Name              Size     VMA              Type
+  0                   00000000 0000000000000000
+  1 .debug_abbrev     00000106 0000000000000000 DEBUG
+  2 .debug_info       000005a9 0000000000000000 DEBUG
+  3 .debug_aranges    00000030 0000000000000000 DEBUG
+  4 .debug_str        0000047b 0000000000000000 DEBUG
+  5 .comment          0000008b 0000000000000000
+  6 .riscv.attributes 00000066 0000000000000000
+  7 .debug_frame      00000038 0000000000000000 DEBUG
+  8 .debug_line       00000048 0000000000000000 DEBUG
+  9 .symtab           00000138 0000000000000000
+ 10 .shstrtab         00000083 0000000000000000
+ 11 .strtab           00000051 0000000000000000
+\end{lstlisting}
+\verb|objdump -h| 是查看 Section Headers 的命令.
+
+此处需要注意的是这个 elf 文件没有
+\verb|.text| \verb|.rodata| \verb|.data| \verb|.bss| 段,
+这说明目前我们的程序是一个空程序.
+并且所有的 VMA 都为 0,
+这表明链接器不知道这个程序应该被加载到内存的什么地址.
+在裸机环境中, 我们需要通过链接脚本(linker script)来告诉链接器
+代码和数据应该放在内存的哪个位置.
+
+
+\end{document}
