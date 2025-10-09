@@ -1,4 +1,13 @@
-\documentclass{ctexart}
+\documentclass[a4paper]{ctexart}
+
+\usepackage{geometry}
+\geometry{
+  top=2.5cm,
+  bottom=2.5cm,
+  left=2.5cm,
+  right=2.5cm
+}
+
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{fontspec}
@@ -64,6 +73,8 @@
 \section{Content}
 
 \subsection{第一步: 创建一个裸机程序}
+
+\subsubsection{1. 一个空程序}
 
 创建工作目录
 \begin{lstlisting}[language=bash]
@@ -170,8 +181,7 @@ error: using `fn main` requires the standard library
 
 error: could not compile `os` (bin "os") due to 1 previous error
 \end{lstlisting}
-这是因为 \verb|main| 函数的环境也是由 std 库提供的,
-关于这一点我们会在后面[程序是如何在计算机上运行的]说明.
+这是因为 \verb|main| 函数的环境也是由 std 库提供的.
 现在我们需要添加 \verb|#![no_main]| 并删除 \verb|main| 函数.
 
 此时的 \verb|main.rs| 内容如下:
@@ -239,5 +249,195 @@ Idx Name              Size     VMA              Type
 在裸机环境中, 我们需要通过链接脚本(linker script)来告诉链接器
 代码和数据应该放在内存的哪个位置.
 
+\subsubsection{2. 一个裸机程序}
+
+既然当前我们的空程序编译成功了,
+那么接下来就是要给它添加一些内容了.
+
+首先, 让我们添加一个最简单的空循环
+\begin{lstlisting}[language=rust]
+#[unsafe(no_mangle)]
+pub extern "C" fn _start() -> ! {
+    loop {}
+}
+\end{lstlisting}
+这里, \verb|_start|
+是链接器默认的程序启动处的入口符号.
+
+编译完成后, 我们可以查看一下得到的可执行文件:
+\begin{lstlisting}[language=bash]
+$ rust-objdump -d target/riscv64gc-unknown-none-elf/debug/os
+\end{lstlisting}
+可以看到
+\begin{lstlisting}
+target/riscv64gc-unknown-none-elf/debug/os:     file format elf64-littleriscv
+
+Disassembly of section .text:
+
+0000000000011158 <_start>:
+   11158: a009          j       0x1115a <_start+0x2>
+   1115a: a001          j       0x1115a <_start+0x2>
+\end{lstlisting}
+这里是两个压缩指令, 我们暂时不去深入,
+只要知道是一个死循环就可以了.
+
+编译完成后我们就可以通过如下命令使用 qemu 执行程序了:
+\begin{lstlisting}[language=bash]
+$ qemu-system-riscv64 \
+    -machine virt \
+    -nographic \
+    -bios none \
+    -kernel target/riscv64gc-unknown-none-elf/debug/os
+\end{lstlisting}
+运行后在笔者的电脑上可以看到 qemu 跑满了一个核心,
+没有任何输出信息.
+我们可以先按 Ctrl-a 然后按 x 退出.
+
+那么又有一个问题来了,
+我们怎么知道程序是否在正常运行呢,
+这就需要 debugger 的帮助了.
+而 qemu 内置了这一功能.
+运行以下命令来启用 gdb 远程调试,
+参数具体含义请查看 man 手册.
+\begin{lstlisting}[language=bash]
+$ qemu-system-riscv64 \
+    -machine virt \
+    -nographic \
+    -bios none \
+    -kernel target/riscv64gc-unknown-none-elf/debug/os \
+    -S -s
+\end{lstlisting}
+
+然后运行以下 gdb 命令连接 qemu 进行调试:
+\begin{lstlisting}[language=bash]
+$ riscv64-linux-gnu-gdb \
+    -ex 'file target/riscv64gc-unknown-none-elf/debug/os' \
+    -ex 'target remote localhost:1234'
+\end{lstlisting}
+这里的 \verb|-ex| 参数会在 gdb 启动后自动执行指定的命令,
+等价于在 gdb 交互提示符 \verb|(gdb)| 下手动输入这些命令.
+这里的 file 指令是让 gdb 加载符号表,
+我们就可以使用它的符号了.
+
+我们先看看此时我们的程序:
+\begin{lstlisting}
+(gdb) x/10i _start
+   0x11158 <os::_start>:        Cannot access memory at address 0x11158
+\end{lstlisting}
+这里的 \verb|x/10i| 表示查看内存,
+以指令形式显示(反汇编), 重复10次.
+这里的结果表示似乎出了些问题.
+让我们继续使用 si 运行,
+可以看到在运行几条指令后 pc 跳转到了
+0x80000000, 此时再查看当前的指令,
+可以看到:
+\begin{lstlisting}
+(gdb) x/5i $pc
+=> 0x80000000:  unimp
+   0x80000002:  unimp
+   0x80000004:  unimp
+   0x80000006:  unimp
+   0x80000008:  unimp
+\end{lstlisting}
+这里的 unimp 是 unimplemented 的缩写,
+表示未实现或非法指令.
+我们运行到这里的时候就会卡死, 运行不到下一条指令.
+
+\begin{quote}
+{\itshape
+这一部分笔者不是很确定, 暂时没有查到相关文档,
+只是作为参考. 目前这一部分对于我们也不是非常重要.
+
+这可能是因为非法指令会触发非法指令异常(illegal
+instruction exception),
+CPU 会跳转到异常向量表中对应的处理程序地址.
+但是很明显我们没有初始化过异常向量表,
+于是跳转之后还是一条非法指令, 于是再次跳转,
+就这样卡死在这里.
+}
+\end{quote}
+
+
+\
+\
+\
+\
+
+
+链接脚本如下:
+\begin{lstlisting}
+OUTPUT_ARCH(riscv)
+ENTRY(_start)
+
+SECTIONS {
+    . = 0x80200000;
+    .text   : { *(.text*) }
+    .rodata : { *(.rodata*) }
+    .data   : { *(.data*) }
+    .bss    : { *(.bss*) *(COMMON) }
+}
+\end{lstlisting}
+我们将它保存为 \verb|src/linker.ld|.
+
+链接脚本的含义如下:
+\begin{lstlisting}
+OUTPUT_ARCH(riscv)
+\end{lstlisting}
+表示输出的目标架构为 riscv, 可以省略.
+如果省略, 链接器会根据 rustc 传入的参数确定目标架构.
+
+\
+
+\begin{lstlisting}
+ENTRY(_start)
+\end{lstlisting}
+表示指定程序从符号 \verb|_start| 开始运行.
+但实际上是通过将 elf 文件的 \verb|e_entry| 字段设置成
+\verb|_start| 的地址实现的,
+如果我们后面直接使用 bin 文件,
+elf 的信息会被删除,
+这一条对我们是没有用的.
+
+\
+
+\begin{lstlisting}
+SECTIONS {
+    . = 0x80200000;
+    .text   : { *(.text*) }
+    .rodata : { *(.rodata*) }
+    .data   : { *(.data*) }
+    .bss    : { *(.bss*) *(COMMON) }
+}
+\end{lstlisting}
+这里 SECTIONS 中的第一行指明装载地址为0x80200000,
+后面的段从这个地址开始依次排列.
+后面的部分中, 冒号左边表示的是生成在可执行文件中的段名,
+右边表示的是这个段需要装载的内容.
+例如 \verb|*(.text*)| 中, 括号外面的 \verb|*| 表示
+匹配所有文件, 而括号里面的 \verb|.text*| 则表示
+匹配所有段名以 \verb|.text| 开始的段,
+合起来就是匹配所有文件中所有以 \verb|.text| 开始的段.
+如果使用的是 bin 文件, 生成的段名信息也会被丢弃.
+
+我们尝试编译:
+\begin{lstlisting}
+$ cargo rustc -- -C link-arg=-Tsrc/linker.ld
+\end{lstlisting}
+可以看到编译成功.
+
+这里的 cargo rustc 命令表示将 \verb|--| 后的参数
+传给编译器, 这里参数的含义就是指定链接脚本.
+
+同样的, 我们可以将这个参数写入 \verb|.cargo/config.toml|,
+故目前的 \verb|.cargo/config.toml| 内容如下:
+\begin{lstlisting}
+[build]
+target = "riscv64gc-unknown-none-elf"
+
+[target.riscv64gc-unknown-none-elf]
+rustflags = ["-C", "link-arg=-Tsrc/linker.ld"]
+\end{lstlisting}
+
+接下来
 
 \end{document}

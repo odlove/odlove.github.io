@@ -105,6 +105,17 @@ code.sourceCode > span {
   display: inline !important;
 }
 
+/* Note/disclaimer style */
+.note {
+  font-size: 0.9em;
+  font-style: italic;
+  color: #666;
+  background-color: #f9f9f9;
+  border-left: 3px solid #ccc;
+  padding: 0.5em 1em;
+  margin: 1em 0;
+}
+
 @media (prefers-color-scheme: dark) {
   html { color: #e8e8e8; background-color: #1a1a1a; }
   body { color: #e8e8e8; background-color: #1a1a1a; }
@@ -118,6 +129,7 @@ code.sourceCode > span {
   table, th, td, tbody { border-color: #4a4a4a; }
   .date, .meta { color: #a0a0a0; }
   header#title-block-header { border-bottom-color: #4a4a4a; }
+  .note { color: #a0a0a0; background-color: #2a2a2a; border-left-color: #555; }
 }
 </style>'''
 
@@ -250,12 +262,10 @@ code.sourceCode > span {
                     except Exception as e:
                         print(f"    Warning: Failed to get version {version_timestamp}: {e}")
 
-                # Generate latest.html (same as most recent version)
-                latest_hash, latest_date = versions[-1]
-                latest_date_str = latest_date.split()[0]
-                content = self.get_file_at_commit(tex_file, latest_hash)
-                self.pandoc_convert_content(content, output_dir / "latest.html",
-                                           article_name, latest_date_str, nav_top_file, nav_bottom_file)
+                # Generate latest.html from current working tree contents
+                latest_date_str = versions[-1][1].split()[0]
+                self.pandoc_convert(tex_file, output_dir / "latest.html",
+                                   article_name, latest_date_str, nav_top_file, nav_bottom_file)
         finally:
             # Clean up nav files
             if nav_top_file and nav_top_file.exists():
@@ -341,6 +351,11 @@ code.sourceCode > span {
         dark_mode_file = self.output_dir / ".dark-mode.html"
         if dark_mode_file.exists():
             cmd.extend(["--include-in-header", str(dark_mode_file)])
+
+        # Add Lua filter for custom processing
+        lua_filter = self.base_dir / "filters" / "note-filter.lua"
+        if lua_filter.exists():
+            cmd.extend(["--lua-filter", str(lua_filter)])
 
         if nav_top_file and nav_top_file.exists():
             cmd.extend(["--include-before-body", str(nav_top_file)])  # Add navigation at top
@@ -540,7 +555,7 @@ code.sourceCode > span {
         html.append('}')
         html.append('</style></head><body>')
         html.append('<h1>Blog</h1>')
-        html.append(f'<p class="date">Last updated: {last_commit_time} | <a href="https://github.com/odlove/odlove.github.io">GitHub</a></p>')
+        html.append(f'<p class="date">Last updated: {last_commit_time} | <a href="https://github.com/odlove/odlove.github.io">Source Code</a></p>')
 
         # Collections section
         if self.collections_dir.exists():
