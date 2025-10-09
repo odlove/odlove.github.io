@@ -274,6 +274,17 @@
     display: inline !important;
   }
 
+  /* Note/disclaimer style */
+  .note {
+    font-size: 0.9em;
+    font-style: italic;
+    color: #666;
+    background-color: #f9f9f9;
+    border-left: 3px solid #ccc;
+    padding: 0.5em 1em;
+    margin: 1em 0;
+  }
+
   @media (prefers-color-scheme: dark) {
     html { color: #e8e8e8; background-color: #1a1a1a; }
     body { color: #e8e8e8; background-color: #1a1a1a; }
@@ -287,6 +298,7 @@
     table, th, td, tbody { border-color: #4a4a4a; }
     .date, .meta { color: #a0a0a0; }
     header#title-block-header { border-bottom-color: #4a4a4a; }
+    .note { color: #a0a0a0; background-color: #2a2a2a; border-left-color: #555; }
   }
   </style>
 </head>
