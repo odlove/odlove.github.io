@@ -2,10 +2,10 @@
 
 \usepackage{geometry}
 \geometry{
-  top=2.5cm,
-  bottom=2.5cm,
-  left=2.5cm,
-  right=2.5cm
+    top=2.5cm,
+    bottom=2.5cm,
+    left=2.5cm,
+    right=2.5cm
 }
 
 \usepackage{listings}
@@ -26,33 +26,33 @@
 
 % 定义 Rust 语言
 \lstdefinelanguage{Rust}{
-  keywords={as, break, const, continue, crate, else, enum, extern, false, fn, for, if, impl, in, let, loop, match, mod, move, mut, pub, ref, return, self, Self, static, struct, super, trait, true, type, unsafe, use, where, while, async, await, dyn},
-  keywordstyle=\color{blue}\bfseries,
-  ndkeywords={bool, u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, usize, isize, str, char, Box, Vec, String, Option, Result},
-  ndkeywordstyle=\color{purple}\bfseries,
-  sensitive=true,
-  comment=[l]{//},
-  morecomment=[s]{/*}{*/},
-  commentstyle=\color{gray}\itshape,
-  stringstyle=\color{red},
-  morestring=[b]",
-  morestring=[b]'
+    keywords={as, break, const, continue, crate, else, enum, extern, false, fn, for, if, impl, in, let, loop, match, mod, move, mut, pub, ref, return, self, Self, static, struct, super, trait, true, type, unsafe, use, where, while, async, await, dyn},
+    keywordstyle=\color{blue}\bfseries,
+    ndkeywords={bool, u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, usize, isize, str, char, Box, Vec, String, Option, Result},
+    ndkeywordstyle=\color{purple}\bfseries,
+    sensitive=true,
+    comment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    morestring=[b]",
+    morestring=[b]'
 }
 
 % 代码块样式
 \lstset{
-  basicstyle=\ttfamily\small,
-  keywordstyle=\color{blue}\bfseries,        % 关键字：蓝色粗体
-  commentstyle=\color{gray}\itshape,         % 注释：灰色斜体
-  stringstyle=\color{red},                   % 字符串：红色
-  numberstyle=\tiny\color{gray},             % 行号：灰色
-  identifierstyle=\color{black},             % 标识符：黑色
-  backgroundcolor=\color{gray!10},           % 背景色
-  frame=single,
-  xleftmargin=2em,
-  framexleftmargin=1.5em,
-  breaklines=true,
-  showstringspaces=false                     % 不显示字符串中的空格
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,        % 关键字：蓝色粗体
+    commentstyle=\color{gray}\itshape,         % 注释：灰色斜体
+    stringstyle=\color{red},                   % 字符串：红色
+    numberstyle=\tiny\color{gray},             % 行号：灰色
+    identifierstyle=\color{black},             % 标识符：黑色
+    backgroundcolor=\color{gray!10},           % 背景色
+    frame=single,
+    xleftmargin=2em,
+    framexleftmargin=1.5em,
+    breaklines=true,
+    showstringspaces=false                     % 不显示字符串中的空格
 }
 
 \begin{document}
@@ -345,7 +345,7 @@ $ riscv64-linux-gnu-gdb \
 
 \begin{quote}
 {\itshape
-这一部分笔者不是很确定, 暂时没有查到相关文档,
+这一部分笔者暂时没有查到相关文档,
 只是作为参考. 目前这一部分对于我们也不是非常重要.
 
 这可能是因为非法指令会触发非法指令异常(illegal
@@ -357,12 +357,11 @@ CPU 会跳转到异常向量表中对应的处理程序地址.
 }
 \end{quote}
 
-
-\
-\
-\
-\
-
+那么如何让程序加载到 0x80000000 呢,
+这时候就到链接脚本出场的时候了.
+qemu 会解析 elf 文件来获取代码加载的信息,
+当前我们的 elf 文件中的地址是一个非法地址,
+不能被正确加载.
 
 链接脚本如下:
 \begin{lstlisting}
@@ -370,7 +369,7 @@ OUTPUT_ARCH(riscv)
 ENTRY(_start)
 
 SECTIONS {
-    . = 0x80200000;
+    . = 0x80000000;
     .text   : { *(.text*) }
     .rodata : { *(.rodata*) }
     .data   : { *(.data*) }
@@ -402,14 +401,14 @@ elf 的信息会被删除,
 
 \begin{lstlisting}
 SECTIONS {
-    . = 0x80200000;
+    . = 0x80000000;
     .text   : { *(.text*) }
     .rodata : { *(.rodata*) }
     .data   : { *(.data*) }
     .bss    : { *(.bss*) *(COMMON) }
 }
 \end{lstlisting}
-这里 SECTIONS 中的第一行指明装载地址为0x80200000,
+这里 SECTIONS 中的第一行指明装载地址为0x80000000,
 后面的段从这个地址开始依次排列.
 后面的部分中, 冒号左边表示的是生成在可执行文件中的段名,
 右边表示的是这个段需要装载的内容.
@@ -438,6 +437,192 @@ target = "riscv64gc-unknown-none-elf"
 rustflags = ["-C", "link-arg=-Tsrc/linker.ld"]
 \end{lstlisting}
 
-接下来
+接下来运行到重新运行,
+在gdb调试中就可以看到 loop 的汇编代码了
+\begin{lstlisting}
+(gdb) x/5i 0x80000000
+   0x80000000 <os::_start>:     j       0x80000002 <os::_start+2>
+=> 0x80000002 <os::_start+2>:   j       0x80000002 <os::_start+2>
+   0x80000004:  unimp
+   0x80000006:  unimp
+   0x80000008:  unimp
+\end{lstlisting}
+
+\subsubsection{3. RustSBI}
+既然我们已经可以将编译出的指令放入 qemu 中执行,
+那么理论上我们就具备了在 qemu 中实现任意功能的能力了.
+
+不过要我们手动控制底层硬件还是太过麻烦了,
+在设计之初 riscv 就提供了
+\href{https://github.com/riscv-non-isa/riscv-sbi-doc}
+{SBI(Supervisor Binary Interface) 规范},
+为操作系统内核提供了一层硬件层的抽象.
+
+SBI 定义了操作系统(运行在 Supervisor 特权级)
+与底层固件(运行在 Machine 特权级)之间的接口规范.
+底层固件负责处理硬件相关的细节(如串口、时钟、电源管理等),
+并向上层操作系统提供标准化的服务接口.
+操作系统只需要按照 SBI 规范调用这些接口,
+就能完成硬件操作, 而无需关心具体的硬件细节.
+
+RustSBI 则是 SBI 规范的一个 Rust 实现.
+
+这里有一个有趣的地方:
+SBI 指的实际上是接口规范,
+而实际的提供接口服务的软件其实叫做
+SBI implementation 或者
+Supervisor Execution Environment(SEE).
+
+好了, 那么我们就开始探索 SBI 吧.
+
+qemu 版本的预编译 RustSBI 可以在\href{https://github.com/rustsbi/rustsbi-qemu/releases}{这里}下载到,
+可以看到这个项目目前已经 archived 了,
+这是因为他们现在使用了一种更通用的方式为不同平台编译
+RustSBI 固件, 既然都读到这儿了, 我们还是自己编译一下吧.
+
+从现在开始, 我就不提供具体指令了.
+
+将 rustsbi 仓库克隆下来之后,
+配置好环境,
+直接运行 cargo prototyper 应该就可以成功了.
+
+我们可以看到 target/config.toml 中有一些配置信息:
+\begin{lstlisting}
+num_hart_max = 8
+stack_size_per_hart = 16384 # 16 * 1024
+heap_size = 1048576 # 1024 * 1024
+page_size = 4096
+log_level = "INFO"
+jump_address = 0x80200000
+tlb_flush_limit = 16384 # page_size * 4
+
+[[next_addr]]
+start = 0x80000000
+end = 0x90000000
+\end{lstlisting}
+
+
+
+%% 编译 rustsbi
+
+%% 使用 qemu 运行 rustsbi 并测试
+
+%% 修改链接脚本并加载内核
+
+运行
+\begin{lstlisting}
+qemu-system-riscv64 \                                                                                    13s
+    -machine virt \
+    -nographic \
+    -bios ../loader/rustsbi-prototyper-dynamic.bin \
+    -kernel target/riscv64gc-unknown-none-elf/debug/os \
+    -S -s
+\end{lstlisting}
+
+gdb:
+\begin{lstlisting}
+riscv64-linux-gnu-gdb \
+    -ex 'file target/riscv64gc-unknown-none-elf/debug/os' \
+    -ex 'target remote localhost:1234'
+\end{lstlisting}
+
+使用 \verb|break _start| 指令可以在 \verb|_start| 的
+位置打上断点, 再使用
+\verb|continue| 就可以看到我们的程序停在了我们写好的
+\verb|loop{}| 中了.
+
+
+%% 让内核使用 rustsbi 的服务
+
+现在我们就可以开始准备使用 rustsbi 的服务了.
+
+关于 sbi 的 abi, 在 \href{https://github.com/riscv-non-isa/riscv-sbi-doc}
+{SBI(Supervisor Binary Interface) 规范} 中可以找到,
+这里简单地介绍一下.
+
+rustsbi 运行在机器特权级(machine-mode),
+而我们的操作系统运行在监督特权级(supervisor-mode),
+在我们需要 sbi 服务的时候,
+我们会先将一系列参数放入指定的寄存器,
+然后通过 \verb|ecall| 指令来唤起 rustsbi,
+跳转到 rustsbi 提前设定好的处理程序.
+
+简要介绍一下 sbi 规范:
+sbi 使用 a0-a7 八个寄存器,
+调用时可能用到所有的寄存器,
+返回时只用到 a0, a1 两个寄存器,
+且除了 a0, a1 两个寄存器,
+其它所有寄存器的值在调用前后保证不变.
+
+调用时, a7 寄存器指定 SBI 扩展 ID (EID),
+a6 寄存器存放 SBI 功能 ID(FID)
+(sbi有数个扩展, 一个扩展有若干功能),
+a0-a5 是调用参数.
+返回时, a0 返回 error code, a1 返回实际数据.
+
+那么我们可以开始试着调用 sbi 了.
+
+\begin{lstlisting}[language=rust]
+#[repr(C)]
+struct SbiRet {
+    /// Error code (0 = success, negative = error)
+    error: isize,
+    /// Return value or error-specific value
+    value: usize,
+}
+
+fn sbi_call(
+    eid: usize,    // Extension ID (a7)
+    fid: usize,    // Function ID (a6)
+    arg0: usize,   // Argument 0 (a0)
+    arg1: usize,   // Argument 1 (a1)
+    arg2: usize,   // Argument 2 (a2)
+    arg3: usize,   // Argument 3 (a3)
+    arg4: usize,   // Argument 4 (a4)
+    arg5: usize,   // Argument 5 (a5)
+) -> SbiRet {
+    let error;
+    let value;
+    unsafe {
+        core::arch::asm!(
+            "ecall",
+            inlateout("a0") arg0 => error,
+            inlateout("a1") arg1 => value,
+            in("a2") arg2,
+            in("a3") arg3,
+            in("a4") arg4,
+            in("a5") arg5,
+            in("a6") fid,
+            in("a7") eid,
+        );
+    }
+    SbiRet { error, value }
+}
+\end{lstlisting}
+这里的 \verb|#[repr(C)]| 表示
+其它的代码很简单, 就是刚才的 sbi 协议的一部分,
+就不解释了.
+
+同样, 查阅文档可以得到:
+\begin{lstlisting}
+pub fn console_putchar(c: usize) {
+    sbi_call(1, 0, c, 0, 0, 0, 0, 0);
+}
+\end{lstlisting}
+顺便说一句, 这里的 Console Putchar 只有 EID,
+没有 FID, 这应该是历史遗留问题导致的.
+
+
+
+
+
+
+%% 使用打包好的库
+
+%% 给出软件版本
+
+
+
+
 
 \end{document}

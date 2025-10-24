@@ -60,6 +60,13 @@ class BlogBuilder:
     def create_dark_mode_header(self):
         """Create dark mode CSS header file for pandoc"""
         dark_css = '''<style>
+body {
+  width: 90%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 1em;
+}
+
 /* Code font - using web-safe fonts as fallback */
 code, pre, pre code {
   font-family: 'CodeNewRoman Nerd Font', 'JetBrains Mono', 'Fira Code', Consolas, Monaco, monospace;
@@ -443,7 +450,7 @@ code.sourceCode > span {
         dark_mode_content = (self.output_dir / ".dark-mode.html").read_text()
         html.append(dark_mode_content)
         html.append('<style>')
-        html.append('body{font-family:sans-serif;max-width:36em;margin:2em auto;padding:0 2em;line-height:1.6}')
+        html.append('body{font-family:sans-serif;width:90%;max-width:900px;margin:2em auto;padding:0;line-height:1.6}')
         html.append('h1{border-bottom:1px solid #ddd;padding-bottom:0.5em}')
         html.append('h2{margin-top:1.5em}')
         html.append('a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}')
@@ -477,7 +484,7 @@ code.sourceCode > span {
         html.append('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
         html.append(f'<title>{collection_name}</title>')
         html.append('<style>')
-        html.append('body{font-family:sans-serif;max-width:36em;margin:2em auto;padding:0 2em;line-height:1.6;color:#1a1a1a}')
+        html.append('body{font-family:sans-serif;width:90%;max-width:900px;margin:2em auto;padding:0;line-height:1.6;color:#1a1a1a}')
         html.append('h1{border-bottom:1px solid #ddd;padding-bottom:0.5em}')
         html.append('a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}')
         html.append('ol{padding-left:2em}')
@@ -539,7 +546,7 @@ code.sourceCode > span {
         html.append('<meta name="viewport" content="width=device-width, initial-scale=1.0">')
         html.append('<title>Blog</title>')
         html.append('<style>')
-        html.append('body{font-family:sans-serif;max-width:36em;margin:2em auto;padding:0 2em;line-height:1.6;color:#1a1a1a}')
+        html.append('body{font-family:sans-serif;width:90%;max-width:900px;margin:2em auto;padding:0;line-height:1.6;color:#1a1a1a}')
         html.append('h1{border-bottom:1px solid #ddd;padding-bottom:0.5em}')
         html.append('h2{margin-top:1.5em;font-size:1.3em}')
         html.append('a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}')
