@@ -1,5 +1,12 @@
 \documentclass[a4paper]{ctexart}
 
+
+\newcommand{\customhrule}{
+    \vspace{0.1cm}
+    \noindent\rule{\linewidth}{0.5pt}
+    % \vspace{0.1cm}
+}
+
 \usepackage{geometry}
 \geometry{
     top=2.5cm,
@@ -612,9 +619,27 @@ pub fn console_putchar(c: usize) {
 顺便说一句, 这里的 Console Putchar 只有 EID,
 没有 FID, 这应该是历史遗留问题导致的.
 
+\customhrule{}
 
+%% 初始化 sp
+接下来我们继续运行,
+会发现一个比较蛋疼的问题.
 
+此时 \verb|b _start| 会发现断点打在了 \verb|0x80200008|
+而非之前的 \verb|0x80200000|, 然后我们的程序会在运行到
+\verb|0x80200008| 之前的 \verb|sd| 指令的时候卡死.
 
+之所以说比较蛋疼是因为之前我们单独运行 \verb|loop{}|
+的时候编译并没有出现 \verb|0x80200008| 之前的那些代码,
+于是我们现在被迫在没有确认上一步是否正确的时候就要处理新的问题.
+
+首先来说说 \verb|0x80200000| 到 \verb|0x80200008|
+之间的这段指令.
+这段指令叫做
+\href{https://en.wikipedia.org/wiki/Function_prologue_and_epilogue}{函数序言(function prologue)}
+简单来说就是为了保存调用函数的
+
+\verb|sd| 指令是
 
 
 %% 使用打包好的库

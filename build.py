@@ -253,7 +253,7 @@ code.sourceCode > span {
                                   nav_top_file, nav_bottom_file)
             else:
                 # Generate all historical versions
-                for commit_hash, commit_date in versions:
+                for commit_hash, commit_date, file_path_at_commit in versions:
                     # Use full timestamp for filename to avoid conflicts
                     # Format: 2025-10-04T18:28
                     version_timestamp = commit_date.replace(' ', 'T').split('+')[0].rsplit(':', 1)[0]
@@ -261,7 +261,7 @@ code.sourceCode > span {
 
                     # Get file content at this commit
                     try:
-                        content = self.get_file_at_commit(tex_file, commit_hash)
+                        content = self.get_file_at_commit(commit_hash, file_path_at_commit)
                         # Display date in metadata
                         display_date = commit_date.split()[0]
                         self.pandoc_convert_content(content, output_file, article_name,
@@ -283,8 +283,8 @@ code.sourceCode > span {
         # Generate version index
         self.generate_version_index(output_dir, article_name, tex_file)
 
-    def get_git_history(self, file_path: Path) -> List[Tuple[str, str]]:
-        """Get git history for a file: [(commit_hash, commit_date), ...]"""
+    def get_git_history(self, file_path: Path) -> List[Tuple[str, str, str]]:
+        """Get git history for a file: [(commit_hash, commit_date, file_path_at_commit), ...]"""
         try:
             # Check if file is in git
             result = subprocess.run(
@@ -297,9 +297,9 @@ code.sourceCode > span {
             if result.returncode != 0:
                 return []
 
-            # Get commit history
+            # Get commit history with file paths
             result = subprocess.run(
-                ["git", "log", "--follow", "--format=%H %ci", "--", str(file_path)],
+                ["git", "log", "--follow", "--format=%H %ci", "--name-only", "--", str(file_path)],
                 cwd=self.base_dir,
                 capture_output=True,
                 text=True,
@@ -307,11 +307,39 @@ code.sourceCode > span {
             )
 
             versions = []
-            for line in result.stdout.strip().split('\n'):
-                if line:
-                    parts = line.split(maxsplit=1)
-                    if len(parts) == 2:
-                        versions.append((parts[0], parts[1]))
+            lines = result.stdout.strip().split('\n')
+            i = 0
+            while i < len(lines):
+                line = lines[i].strip()
+                if not line:
+                    i += 1
+                    continue
+
+                # Parse commit hash and date
+                parts = line.split(maxsplit=1)
+                if len(parts) == 2:
+                    commit_hash, commit_date = parts
+
+                    # Next line should be empty, then file path
+                    i += 1
+                    if i < len(lines) and not lines[i].strip():
+                        i += 1
+
+                    # Get file path at this commit
+                    if i < len(lines) and lines[i].strip():
+                        file_path_at_commit = lines[i].strip()
+                        # Remove git's quote escaping and decode escaped characters if present
+                        if file_path_at_commit.startswith('"') and file_path_at_commit.endswith('"'):
+                            file_path_at_commit = file_path_at_commit[1:-1]
+                            # Decode git's octal escaping (e.g., \345\272\224 -> 应)
+                            try:
+                                file_path_at_commit = file_path_at_commit.encode().decode('unicode_escape').encode('latin1').decode('utf-8')
+                            except (UnicodeDecodeError, UnicodeEncodeError):
+                                # If decoding fails, use the escaped version as-is
+                                pass
+                        versions.append((commit_hash, commit_date, file_path_at_commit))
+
+                i += 1
 
             return list(reversed(versions))  # Oldest first
 
@@ -319,12 +347,10 @@ code.sourceCode > span {
             print(f"    Warning: git history error: {e}")
             return []
 
-    def get_file_at_commit(self, file_path: Path, commit_hash: str) -> str:
-        """Get file content at a specific commit"""
-        # Git show needs relative path from repo root
-        rel_path = file_path.relative_to(self.base_dir)
+    def get_file_at_commit(self, commit_hash: str, file_path_at_commit: str) -> str:
+        """Get file content at a specific commit using the exact path from that commit"""
         result = subprocess.run(
-            ["git", "show", f"{commit_hash}:{rel_path}"],
+            ["git", "show", f"{commit_hash}:{file_path_at_commit}"],
             cwd=self.base_dir,
             capture_output=True,
             text=True,
@@ -509,7 +535,7 @@ code.sourceCode > span {
             # Get last modification date from git
             versions = self.get_git_history(tex_file)
             if versions:
-                last_date = versions[-1][1].split()[0]
+                last_date = versions[-1][1].split()[0]  # Extract date from (hash, date, path) tuple
             else:
                 last_date = self.get_current_time().strftime("%Y-%m-%d")
 
@@ -580,7 +606,7 @@ code.sourceCode > span {
                     for tex_file in tex_files:
                         versions = self.get_git_history(tex_file)
                         if versions:
-                            file_date = versions[-1][1].split()[0]
+                            file_date = versions[-1][1].split()[0]  # Extract date from (hash, date, path) tuple
                             if latest_date is None or file_date > latest_date:
                                 latest_date = file_date
 
@@ -607,7 +633,7 @@ code.sourceCode > span {
                     # Get last modification date from git
                     versions = self.get_git_history(tex_file)
                     if versions:
-                        last_date = versions[-1][1].split()[0]
+                        last_date = versions[-1][1].split()[0]  # Extract date from (hash, date, path) tuple
                     else:
                         last_date = self.get_current_time().strftime("%Y-%m-%d")
 
